@@ -1,0 +1,99 @@
+---
+# cybergavin 
+# Prepare a node for Kubernetes
+#
+- name: Turn off swap 
+  command: swapoff -a 
+  changed_when: true
+  when: ansible_swaptotal_mb > 0
+   
+- name: Disable swap  
+  lineinfile:
+    path: '/etc/fstab'
+    regexp: '\sswap\s'
+    state: absent 
+
+- name: Put SELinux in permissive mode, logging actions that would be blocked.
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: Disable firewalld 
+  systemd:
+    name: firewalld
+    state: stopped
+    enabled: no
+
+- name: Load the required kernel modules 
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - br_netfilter
+    - overlay
+
+- name: Persist kernel module loading  
+  copy:
+    dest: '/etc/modules-load.d/k8s.conf' 
+    content: |
+      br_netfilter
+      overlay
+
+- name: Tune sysctl parameters  in /proc and the sysctl file
+  sysctl:
+    name: "{{ item }}" 
+    value: '1'
+    sysctl_set: yes
+    state: present
+  with_items:
+    - net.ipv4.ip_forward
+    - net.bridge.bridge-nf-call-iptables
+    - net.bridge.bridge-nf-call-ip6tables
+
+- name: Add Kubernetes repository 
+  yum_repository:
+    baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+    name: "Kubernetes"
+    state: present 
+    description: "Kubernetes Repository"
+    gpgcheck: yes
+    gpgkey: "https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg" 
+    exclude: "kubelet kubeadm kubectl"
+
+- name: Add docker-ce repository for containerd 
+  yum_repository:
+    name: "Docker-CE" 
+    description: "Docker CE Stable" 
+    baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable 
+    state: present
+    gpgcheck: yes
+    gpgkey: https://download.docker.com/linux/centos/gpg 
+    
+- name: Install required packages (containerd, kubeadmn, kubectl, kubelet) 
+  yum:
+    name: "{{ packages }}"
+    disable_excludes: "Kubernetes"
+  vars:
+    packages:
+    - containerd.io
+    - kubeadm
+    - kubelet
+    - kubectl
+    - iproute-tc
+
+- name: Dump default configuration for containerd
+  shell: containerd config default > /etc/containerd/config.toml
+
+- name: Configure crictl to use containerd
+  copy:
+    src: files/crictl.yaml 
+    dest: /etc/crictl.yaml
+
+- name: Enable and start the required services (containerd.io, kubelet) 
+  systemd:
+    name: "{{ item }}" 
+    enabled: yes
+    state: started
+  with_items:
+    - containerd
+    - kubelet

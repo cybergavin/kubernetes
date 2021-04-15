@@ -1,0 +1,11 @@
+---
+# cybergavin 
+# Control Plane Init 
+
+- name: Include variables
+  include_vars: dir=vars
+
+- name: Initialize the Kubernetes Cluster
+  command: kubeadm init --pod-network-cidr "{{ pod_network }}" --service-cidr "{{ service_network }}" 
+  register: kubeadm_init
+  failed_when: kubeadm_init.rc != 0

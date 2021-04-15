@@ -1,0 +1,30 @@
+---
+# cybergavin 
+# Create a Kubernetes cluster with a single-node control plane
+# Uses inventory details in files/inventory
+#
+- name: Prepare all nodes for the creation of the Kubernetes cluster 
+  hosts: all 
+  remote_user: auto.svc
+  become: yes
+  gather_facts: True
+  tasks:
+    - include: k8s_prep.yaml
+
+- name: Create the Kubernetes cluster 
+  hosts: control-plane 
+  remote_user: auto.svc
+  become: yes
+  gather_facts: True
+  tasks:
+    - include: k8s_cp_init.yaml 
+    - include: k8s_calico.yaml 
+    - include: k8s_joincommand.yaml 
+
+- name: Join nodes to the Kubernetes cluster 
+  hosts: nodes 
+  remote_user: auto.svc
+  become: yes
+  gather_facts: True
+  tasks:
+    - include: k8s_join_node.yaml 

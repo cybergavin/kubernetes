@@ -1,0 +1,10 @@
+[control-plane]
+172.30.100.10
+
+[nodes]
+172.30.100.11
+172.30.100.12
+
+[k8s-cluster:children]
+control-plane
+nodes

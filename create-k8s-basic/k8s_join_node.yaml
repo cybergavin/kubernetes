@@ -1,0 +1,5 @@
+---
+# cybergavin 
+
+- name: Join {{ ansible_facts['nodename'] }} to the k8s cluster
+  command: "{{ hostvars['kubeadm']['join_command'] }}"

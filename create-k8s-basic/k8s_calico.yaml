@@ -1,0 +1,38 @@
+---
+# cybergavin 
+# Install Calico with Tigera operator - https://docs.projectcalico.org/getting-started/kubernetes/quickstart
+
+- name: Create .kube directory
+  file:
+    path: /root/.kube
+    state: directory
+
+- name: Copy kubernetes config file for kubectl
+  copy:
+    src: /etc/kubernetes/admin.conf
+    remote_src: yes
+    dest: /root/.kube/config
+
+- name: Include variables
+  include_vars: dir=vars
+
+- name: Install the Tigera Operator 
+  command: kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml 
+  register: tigera_operator_install
+  failed_when: tigera_operator_install.rc != 0
+
+- name: Copy calico manifest file
+  copy:
+    src: "{{ playbook_dir }}/files/calico-base.yaml" 
+    dest: /root/calico-base.yaml
+
+- name: Set pod network CIDR in Calico manifest 
+  replace:
+    path: /root/calico-base.yaml 
+    regexp: 'POD_NETWORK'
+    replace: "{{ pod_network }}"
+
+- name: Install Calico 
+  command: kubectl create -f /root/calico-base.yaml 
+  register: calico_install
+  failed_when: calico_install.rc != 0
